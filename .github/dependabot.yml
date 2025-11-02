@@ -1,0 +1,41 @@
+version: 2
+updates:
+  - package-ecosystem: "npm" # Change this to your package ecosystem (e.g., "npm", "pip", etc.)
+    directory: "/" # Location of the package manifests
+    schedule:
+      interval: "daily"
+      time: "00:00"
+      timezone: "UTC"
+      start: "2023-11-02" # Start of daily checks
+      end: "2023-11-08"   # End of daily checks
+    commit-message:
+      prefix: "fix"
+    pull-request:
+      auto-merge: true
+      separate: true
+
+  - package-ecosystem: "npm" # Change this to your package ecosystem
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      time: "00:00"
+      timezone: "UTC"
+      start: "2023-11-09" # Start of weekly checks
+      end: "2024-05-09"   # End of weekly checks
+    commit-message:
+      prefix: "fix"
+    pull-request:
+      auto-merge: true
+      separate: true
+
+  - package-ecosystem: "npm" # Change this to your package ecosystem
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "00:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "fix"
+    pull-request:
+      auto-merge: true
+      separate: true
