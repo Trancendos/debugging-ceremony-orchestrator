@@ -1,41 +1,48 @@
 version: 2
 updates:
-  - package-ecosystem: "npm" # Change this to your package ecosystem (e.g., "npm", "pip", etc.)
-    directory: "/" # Location of the package manifests
+  # Monitor GitHub Actions for updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    open-pull-requests-limit: 10
+
+  # Monitor npm dependencies - daily checks
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
       interval: "daily"
       time: "00:00"
       timezone: "UTC"
-      start: "2023-11-02" # Start of daily checks
-      end: "2023-11-08"   # End of daily checks
     commit-message:
       prefix: "fix"
     pull-request:
-      auto-merge: true
-      separate: true
+      auto-merge: false
+    ignore:
+      # Ignore major version updates
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
-  - package-ecosystem: "npm" # Change this to your package ecosystem
+  # Monitor npm dependencies - weekly checks
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-      time: "00:00"
-      timezone: "UTC"
-      start: "2023-11-09" # Start of weekly checks
-      end: "2024-05-09"   # End of weekly checks
-    commit-message:
-      prefix: "fix"
-    pull-request:
-      auto-merge: true
-      separate: true
-
-  - package-ecosystem: "npm" # Change this to your package ecosystem
-    directory: "/"
-    schedule:
-      interval: "monthly"
-      time: "00:00"
+      day: "monday"
+      time: "09:00"
       timezone: "UTC"
     commit-message:
-      prefix: "fix"
-    pull-request:
-      auto-merge: true
-      separate: true
+      prefix: "chore"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 5

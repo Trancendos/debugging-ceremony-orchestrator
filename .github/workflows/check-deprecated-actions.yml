@@ -1,0 +1,149 @@
+name: Check for Deprecated Actions
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  check-deprecated-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check for deprecated action versions
+        id: check
+        run: |
+          echo "Checking for deprecated GitHub Actions..."
+          
+          # Initialize variables
+          DEPRECATED_FOUND=false
+          DEPRECATED_ACTIONS=""
+          
+          # Define deprecated actions and their replacements
+          declare -A DEPRECATED_MAP=(
+            ["actions/cache@v1"]="actions/cache@v4"
+            ["actions/cache@v2"]="actions/cache@v4"
+            ["actions/cache@v3"]="actions/cache@v4"
+            ["actions/checkout@v1"]="actions/checkout@v4"
+            ["actions/checkout@v2"]="actions/checkout@v4"
+            ["actions/checkout@v3"]="actions/checkout@v4"
+            ["actions/setup-node@v1"]="actions/setup-node@v4"
+            ["actions/setup-node@v2"]="actions/setup-node@v4"
+            ["actions/setup-node@v3"]="actions/setup-node@v4"
+            ["actions/setup-python@v1"]="actions/setup-python@v5"
+            ["actions/setup-python@v2"]="actions/setup-python@v5"
+            ["actions/setup-python@v3"]="actions/setup-python@v5"
+            ["actions/setup-python@v4"]="actions/setup-python@v5"
+          )
+          
+          # Search for deprecated actions in workflow files
+          if [ -d ".github/workflows" ]; then
+            for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
+              if [ -f "$workflow" ]; then
+                echo "Checking $workflow..."
+                for deprecated in "${!DEPRECATED_MAP[@]}"; do
+                  if grep -q "$deprecated" "$workflow"; then
+                    DEPRECATED_FOUND=true
+                    replacement="${DEPRECATED_MAP[$deprecated]}"
+                    echo "Found deprecated action: $deprecated in $workflow (should be $replacement)"
+                    DEPRECATED_ACTIONS="${DEPRECATED_ACTIONS}\n- Found \`${deprecated}\` in \`${workflow}\` (update to \`${replacement}\`)"
+                  fi
+                done
+              fi
+            done
+          fi
+          
+          if [ "$DEPRECATED_FOUND" = true ]; then
+            echo "deprecated_found=true" >> $GITHUB_OUTPUT
+            echo "deprecated_actions<<EOF" >> $GITHUB_OUTPUT
+            echo -e "$DEPRECATED_ACTIONS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "deprecated_found=false" >> $GITHUB_OUTPUT
+            echo "No deprecated actions found!"
+          fi
+
+      - name: Create Issue for deprecated actions
+        if: steps.check.outputs.deprecated_found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deprecatedActions = `${{ steps.check.outputs.deprecated_actions }}`;
+            
+            // Check if issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'deprecated-actions'
+            });
+            
+            const issueTitle = '⚠️ Deprecated GitHub Actions detected';
+            const existingIssue = issues.data.find(issue => issue.title === issueTitle);
+            
+            const issueBody = `## Deprecated GitHub Actions Detected
+            
+            The following deprecated GitHub Actions were found in workflow files:
+            
+            ${deprecatedActions}
+            
+            ### Recommended Actions
+            
+            1. Update the deprecated actions to their latest versions
+            2. Test the workflows after updating
+            3. Review the changelog for any breaking changes
+            
+            ### References
+            
+            - [GitHub Actions Versioning](https://github.com/actions/toolkit/blob/main/docs/action-versioning.md)
+            - [actions/cache releases](https://github.com/actions/cache/releases)
+            - [actions/checkout releases](https://github.com/actions/checkout/releases)
+            
+            ---
+            *This issue was automatically created by the [Check for Deprecated Actions workflow](.github/workflows/check-deprecated-actions.yml)*
+            *Last checked: ${new Date().toISOString()}*`;
+            
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: issueBody
+              });
+              console.log(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: issueBody,
+                labels: ['deprecated-actions', 'automation', 'maintenance']
+              });
+              console.log(`Created issue #${issue.data.number}`);
+            }
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.check.outputs.deprecated_found }}" = "true" ]; then
+            echo "⚠️ Deprecated actions found. An issue has been created/updated."
+            echo "Please review and update the deprecated actions."
+          else
+            echo "✅ No deprecated actions found. All actions are up to date!"
+          fi
